@@ -1,0 +1,52 @@
+version: "3.8"
+
+services:
+  ollama:
+    volumes:
+      - ollama:/root/.ollama
+    container_name: ollama
+    pull_policy: always
+    tty: true
+    restart: unless-stopped
+    image: ollama/ollama:${OLLAMA_DOCKER_TAG-latest}
+    environment:
+      - "OLLAMA_HOST=http://0.0.0.0:11434"
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG-main}
+    container_name: open-webui
+    volumes:
+      - /Users/marc/open-webui-data:/app/backend/data
+    depends_on:
+      - ollama
+    environment:
+      - "OLLAMA_BASE_URL=http://ollama:11434"
+      - "WEBUI_SECRET_KEY="
+      - "WEBUI_NAME=HAI"
+      - "OPENAI_API_KEY=${OPENAI_API_KEY}"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    restart: unless-stopped
+
+  caddy:
+    image: caddy
+    container_name: caddy
+    depends_on:
+      - open-webui
+    ports:
+      - 443:443
+    volumes:
+      - ./caddy:/etc/caddy/
+    restart: unless-stopped
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 86400 --http-api-metrics --http-api-token 'my-super-secret-key-001' open-webui ollama
+    depends_on:
+      - caddy
+
+volumes:
+  ollama: {}
