@@ -44,7 +44,7 @@ services:
     container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 86400 --http-api-metrics --http-api-token 'my-super-secret-key-001' open-webui ollama
+    command: --interval 86400 --http-api-metrics --http-api-token ${WATCHTOWER_SECRET_KEY} open-webui ollama
     depends_on:
       - caddy
 
