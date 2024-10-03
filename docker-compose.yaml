@@ -1,29 +1,32 @@
 version: "3.8"
 
 services:
-  ollama:
-    volumes:
-      - ollama:/root/.ollama
-    container_name: ollama
-    pull_policy: always
-    tty: true
-    restart: unless-stopped
-    image: ollama/ollama:${OLLAMA_DOCKER_TAG-latest}
-    environment:
-      - "OLLAMA_HOST=http://0.0.0.0:11434"
-
   open-webui:
     image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG-main}
     container_name: open-webui
+    pull_policy: missing
     volumes:
-      - /Users/marc/open-webui-data:/app/backend/data
-    depends_on:
-      - ollama
+      - "${OPEN_WEB_UI_VOLUME}:/app/backend/data"
     environment:
       - "OLLAMA_BASE_URL=http://ollama:11434"
       - "WEBUI_SECRET_KEY="
       - "WEBUI_NAME=HAI"
-      - "OPENAI_API_KEY=${OPENAI_API_KEY}"
+      - "OPENAI_API_KEY=${OPENAI_API_KEY}"     
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    restart: unless-stopped
+  
+  open-webui-pipelines:
+    image: ghcr.io/open-webui/pipelines:${WEBUI_DOCKER_TAG-main}
+    container_name: open-webui-pipelines
+    pull_policy: missing
+    volumes:
+      - "${OPEN_WEB_UI_PIPELINES_VOLUME}:/app/pipelines"
+    environment:
+      - "AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}"
+      - "AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}"
+      - "AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME}"
+      - "AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION}"      
     extra_hosts:
       - host.docker.internal:host-gateway
     restart: unless-stopped
@@ -37,6 +40,7 @@ services:
       - 443:443
     volumes:
       - ./caddy:/etc/caddy/
+      - ./caddy_data:/data
     restart: unless-stopped
 
   watchtower:
@@ -44,9 +48,10 @@ services:
     container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 86400 --http-api-metrics --http-api-token ${WATCHTOWER_SECRET_KEY} open-webui ollama
+    command: --interval 500 --http-api-metrics --http-api-token ${WATCHTOWER_SECRET_KEY} open-webui ollama
     depends_on:
       - caddy
+    restart: unless-stopped
 
 volumes:
   ollama: {}
